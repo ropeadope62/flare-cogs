@@ -20,6 +20,10 @@ class Crypto(commands.Cog):
 
     __version__ = "0.1.0"
     __author__ = "flare, Flame and TrustyJAID."
+    
+    custom_name_mapping = {
+        "Boofcoin": "BTC",
+        "BoofNFT": "ETH"}
 
     def format_help_for_context(self, ctx):
         pre_processed = super().format_help_for_context(ctx)
@@ -42,19 +46,17 @@ class Crypto(commands.Cog):
         self, base: str
     ) -> dict:  # Attribution to TrustyJAID, https://github.com/TrustyJAID/Trusty-cogs/blob/ffdb8f77ed888d5bbbfcc3805d860e8dab80741b/conversions/conversions.py#L211
         url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
+        real_symbol = self.custom_name_mapping.get(base, base)
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=await self.get_header()) as resp:
                 data = await resp.json()
                 if resp.status in [400, 401, 403, 429, 500]:
                     return data
-        return next(
-            (
-                coin
-                for coin in data["data"]
-                if base.upper() == coin["symbol"].upper() or base.lower() == coin["name"].lower()
-            ),
-            {},
-        )
+                for coin in data["data"]:
+                    if real_symbol.upper() == coin["symbol"].upper():
+                        return coin
+        return {}
+
 
     async def all_coins(self):
         url = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
@@ -77,6 +79,9 @@ class Crypto(commands.Cog):
         if amount <= 0:
             await ctx.send("You cannot buy less than 0 coin.")
             return
+        
+        real_symbol = self.custom_name_mapping.get(coin, coin)
+        coin_data = await self.checkcoins(real_symbol)
         coin_data = await self.checkcoins(coin)
         if "status" in coin_data:
             status = coin_data["status"]
@@ -132,7 +137,8 @@ class Crypto(commands.Cog):
         if amount <= 0:
             await ctx.send("You cannot buy less than 0 coin.")
             return
-        coin_data = await self.checkcoins(coin)
+        real_symbol = self.custom_name_mapping.get(coin, coin)
+        coin_data = await self.checkcoins(real_symbol)
         if "status" in coin_data:
             status = coin_data["status"]
             if status["error_code"] in [1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011]:
